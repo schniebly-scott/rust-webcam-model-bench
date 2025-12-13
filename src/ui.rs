@@ -1,40 +1,59 @@
-use gpui::{App, Application, Context, Render, Window, WindowOptions, div, img, prelude::*};
-use std::path::PathBuf;
+use iced::widget::{container, image};
+use iced::{Element, Fill, Subscription, Theme};
 
-struct GifViewer {
-    gif_path: PathBuf,
+use crate::camera;
+
+pub fn run() -> iced::Result {
+    iced::application(App::new, App::update, App::view)
+        .subscription(App::subscription)
+        .theme(App::theme)
+        .run()
 }
 
-impl GifViewer {
-    fn new(gif_path: PathBuf) -> Self {
-        Self { gif_path }
+struct App {
+    frame: Option<image::Handle>,
+}
+
+#[derive(Debug, Clone)]
+pub enum Message {
+    NewFrame(image::Handle),
+}
+
+impl App {
+    fn new() -> Self {
+        Self { frame: None }
     }
-}
 
-impl Render for GifViewer {
-    fn render(&mut self, _window: &mut Window, _cx: &mut Context<Self>) -> impl IntoElement {
-        div().size_full().child(
-            img(self.gif_path.clone())
-                .size_full()
-                .object_fit(gpui::ObjectFit::Contain)
-                .id("gif"),
-        )
+    fn update(&mut self, message: Message) {
+        match message {
+            Message::NewFrame(handle) => {
+                self.frame = Some(handle);
+            }
+        }
     }
-}
 
-pub fn run() {
-    Application::new().run(|cx: &mut App| {
-        let gif_path =
-            PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("image/black-cat-typing.gif");
-        
-        cx.open_window(
-            WindowOptions {
-                focus: true,
-                ..Default::default()
-            },
-            |_, cx| cx.new(|_| GifViewer::new(gif_path)),
-        )
-        .unwrap();
-        cx.activate(true);
-    });
+    fn view(&self) -> Element<'_, Message> {
+        let content = if let Some(frame) = &self.frame {
+            Element::from(
+                image(frame.clone())
+                    .width(Fill)
+                    .height(Fill)
+            )
+        } else {
+            Element::from(
+                container("Waiting for frames...")
+            )
+        };
+
+        container(content).padding(20).into()
+    }
+
+    fn subscription(&self) -> Subscription<Message> {
+        println!("App::subscription() called");
+        camera::subscription()
+    }
+
+    fn theme(&self) -> Theme {
+        Theme::Dark
+    }
 }

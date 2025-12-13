@@ -1,6 +1,6 @@
 mod ui;
 mod camera;
 
-fn main() {
-    camera::capture_frame();
+pub fn main() -> iced::Result {
+    ui::run()
 }
