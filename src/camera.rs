@@ -34,8 +34,8 @@ impl CameraManager {
         let mut camera = Camera::new(&self.device)?;
 
         camera.start(&Config {
-            interval: (1, 30),
-            resolution: (1280, 720),
+            interval: (1, 30), // FPS
+            resolution: (640, 480),
             format: b"MJPG",
             ..Default::default()
         })?;
