@@ -49,8 +49,7 @@ impl App {
     }
 
     fn subscription(&self) -> Subscription<Message> {
-        println!("App::subscription() called");
-        camera::subscription()
+        camera::subscription().map(Message::NewFrame)
     }
 
     fn theme(&self) -> Theme {

@@ -4,14 +4,16 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-gpui = "0.2.2"
-
-[dependencies.nokhwa]
-version = "0.10"
-# Use the native input backends, enable WGPU integration
-features = ["input-native"]
-
-# add this to enable exporting to a JPEG/PNG
-[dependencies.image]
-version = "0.25"
-features = ["default-formats"]
+iced = { version = "0.14", features = [
+    "image",
+    "canvas",
+    "tokio",     # Enables time::every and async subscriptions
+    "advanced",
+] }
+rscam = "0.5.5"
+anyhow = "1.0"
+tokio = { version = "1", features = ["full"] }
+bytes = "1"
+async-stream = "0.3"
+rustc-hash = "1.1.0"
+image = "0.25.9"
