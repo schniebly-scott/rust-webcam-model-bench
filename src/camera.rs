@@ -1,9 +1,8 @@
-use anyhow::Result;
 use rscam::{Camera, Config};
 
 use std::thread;
 use std::time::Duration;
-use std::io::Cursor;
+use std::error::Error;
 
 use tokio::sync::broadcast;
 
@@ -13,7 +12,7 @@ use iced::advanced::subscription::Hasher;
 use iced::futures::stream;
 use iced::widget::image;
 
-use ::image::ImageReader;
+use yuv::{yuyv422_to_rgba, YuvPackedImage};
 
 /// RGBA frame sent to the UI
 /// (width, height, pixels)
@@ -24,20 +23,22 @@ pub struct CameraManager {
 }
 
 impl CameraManager {
+    pub const WIDTH: u32 = 640;
+    pub const HEIGHT: u32 = 480;
+
     pub fn new(device: &str) -> Self {
         Self {
             device: device.to_string(),
         }
     }
 
-    pub fn start(&self) -> Result<broadcast::Receiver<Frame>> {
+    pub fn start(&self) -> Result<broadcast::Receiver<Frame>, Box<dyn Error>> {
         let mut camera = Camera::new(&self.device)?;
 
         camera.start(&Config {
             interval: (1, 30), // FPS
-            resolution: (640, 480),
-            format: b"MJPG",
-            ..Default::default()
+            resolution: (Self::WIDTH, Self::HEIGHT),
+            ..Default::default() // YUYV format
         })?;
 
         eprintln!("Camera started successfully");
@@ -48,20 +49,21 @@ impl CameraManager {
             loop {
                 match camera.capture() {
                     Ok(frame) => {
-                        let decoded = match ImageReader::new(Cursor::new(&frame[..])).with_guessed_format() {
-                            Ok(reader) => reader.decode(),
-                            Err(e) => Err(e.into()),
+                        let mut rgba = vec![0u8; (CameraManager::WIDTH * CameraManager::HEIGHT * 4) as usize];
+                        let yuv_image = YuvPackedImage {
+                            yuy: &frame,
+                            yuy_stride: CameraManager::WIDTH * 2, // YUYV422 has 2 bytes per pixel
+                            width: CameraManager::WIDTH,
+                            height: CameraManager::HEIGHT,
                         };
-
-                        match decoded {
-                            Ok(img) => {
-                                let rgba = img.to_rgba8();
-                                let (w, h) = rgba.dimensions();
-                                let _ = tx.send((w, h, rgba.into_raw()));
-                            }
-                            Err(e) => {
-                                eprintln!("JPEG decode failed: {}", e);
-                            }
+                        if let Ok(_) = yuyv422_to_rgba(
+                            &yuv_image,
+                            &mut rgba,
+                            CameraManager::WIDTH * 4, // RGBA stride
+                            yuv::YuvRange::Full,
+                            yuv::YuvStandardMatrix::Bt601,
+                        ) {
+                            let _ = tx.send((CameraManager::WIDTH, CameraManager::HEIGHT, rgba));
                         }
                     }
                     Err(e) => {

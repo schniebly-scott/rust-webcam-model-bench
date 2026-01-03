@@ -11,9 +11,6 @@ iced = { version = "0.14", features = [
     "advanced",
 ] }
 rscam = "0.5.5"
-anyhow = "1.0"
 tokio = { version = "1", features = ["full"] }
-bytes = "1"
 async-stream = "0.3"
-rustc-hash = "1.1.0"
-image = { version = "0.25.9", features = ["jpeg", "png"] }
+yuv = "0.8.9"

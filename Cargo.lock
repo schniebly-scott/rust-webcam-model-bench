@@ -3049,14 +3049,11 @@ checksum = "357703d41365b4b27c590e3ed91eabb1b663f07c4c084095e60cbed4362dff0d"
 name = "rustcameratest"
 version = "0.1.0"
 dependencies = [
- "anyhow",
  "async-stream",
- "bytes",
  "iced",
- "image",
  "rscam",
- "rustc-hash 1.1.0",
  "tokio",
+ "yuv",
 ]
 
 [[package]]
@@ -4713,6 +4710,15 @@ name = "yazi"
 version = "0.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e01738255b5a16e78bbb83e7fbba0a1e7dd506905cfc53f4622d89015a03fbb5"
+
+[[package]]
+name = "yuv"
+version = "0.8.9"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "28f1bad143caadcfcaec93039dc9c40a30fc86f23d9e7cc03764a39fe51d9d43"
+dependencies = [
+ "num-traits",
+]
 
 [[package]]
 name = "zbus"
