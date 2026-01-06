@@ -1,5 +1,5 @@
 [package]
-name = "rustcameratest"
+name = "rust-webcam-model-bench"
 version = "0.1.0"
 edition = "2024"
 
