@@ -3,6 +3,7 @@ use rscam::{Camera, Config};
 use std::thread;
 use std::time::Duration;
 use std::error::Error;
+use std::sync::{Arc, Mutex};
 
 use tokio::sync::broadcast;
 
@@ -16,7 +17,19 @@ use yuv::{yuyv422_to_rgba, YuvPackedImage};
 
 /// RGBA frame sent to the UI
 /// (width, height, pixels)
-type Frame = (u32, u32, Vec<u8>);
+type Frame = (u32, u32, Arc<RgbaBuffer>);
+
+pub struct RgbaBuffer {
+    data: Vec<u8>,
+    pool: Arc<Mutex<Vec<Vec<u8>>>>,
+}
+
+impl Drop for RgbaBuffer {
+    fn drop(&mut self) {
+        let mut pool = self.pool.lock().unwrap();
+        pool.push(std::mem::take(&mut self.data));
+    }
+}
 
 pub struct CameraManager {
     device: String,
@@ -44,26 +57,46 @@ impl CameraManager {
         eprintln!("Camera started successfully");
 
         let (tx, rx) = broadcast::channel::<Frame>(2);
+        let pool: Arc<Mutex<Vec<Vec<u8>>>> = Arc::new(Mutex::new(Vec::new()));
+
+        let pool_clone = pool.clone();
 
         thread::spawn(move || {
+            let frame_len = (CameraManager::WIDTH * CameraManager::HEIGHT * 4) as usize;
+
             loop {
                 match camera.capture() {
                     Ok(frame) => {
-                        let mut rgba = vec![0u8; (CameraManager::WIDTH * CameraManager::HEIGHT * 4) as usize];
+                        // Try to reuse a buffer
+                        let mut rgba = {
+                            let mut pool = pool_clone.lock().unwrap();
+                            pool.pop().unwrap_or_else(|| vec![0u8; frame_len])
+                        };
+
                         let yuv_image = YuvPackedImage {
                             yuy: &frame,
-                            yuy_stride: CameraManager::WIDTH * 2, // YUYV422 has 2 bytes per pixel
+                            yuy_stride: CameraManager::WIDTH * 2,
                             width: CameraManager::WIDTH,
                             height: CameraManager::HEIGHT,
                         };
-                        if let Ok(_) = yuyv422_to_rgba(
+
+                        if yuyv422_to_rgba(
                             &yuv_image,
                             &mut rgba,
-                            CameraManager::WIDTH * 4, // RGBA stride
+                            CameraManager::WIDTH * 4,
                             yuv::YuvRange::Full,
                             yuv::YuvStandardMatrix::Bt601,
-                        ) {
-                            let _ = tx.send((CameraManager::WIDTH, CameraManager::HEIGHT, rgba));
+                        ).is_ok() {
+                            let buf = RgbaBuffer {
+                                data: rgba,
+                                pool: pool_clone.clone(),
+                            };
+
+                            let arc = Arc::new(buf);
+                            let _ = tx.send((CameraManager::WIDTH, CameraManager::HEIGHT, arc));
+                        } else {
+                            // Conversion failed, return buffer to pool
+                            pool_clone.lock().unwrap().push(rgba);
                         }
                     }
                     Err(e) => {
@@ -73,6 +106,7 @@ impl CameraManager {
                 }
             }
         });
+
 
         Ok(rx)
     }
@@ -105,8 +139,8 @@ impl subscription::Recipe for CameraSubscription {
         match manager.start() {
             Ok(mut rx) => {
                 let s = async_stream::stream! {
-                    while let Ok((w, h, rgba)) = rx.recv().await {
-                        yield image::Handle::from_rgba(w, h, rgba);
+                    while let Ok((w, h, buf)) = rx.recv().await {
+                        yield image::Handle::from_rgba(w, h, buf.data.clone());
                     }
                 };
                 Box::pin(s)
