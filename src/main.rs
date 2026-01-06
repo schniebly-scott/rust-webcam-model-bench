@@ -1,6 +1,5 @@
-mod ui;
-mod camera;
+use rustcameratest::app;
 
 pub fn main() -> iced::Result {
-    ui::run()
+    app::run()
 }
