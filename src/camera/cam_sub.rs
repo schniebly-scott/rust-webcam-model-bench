@@ -12,7 +12,7 @@ use super::Frame;
    Iced Subscription
    ============================ */
 
-pub fn subscription(rx: broadcast::Receiver<Frame>) -> Subscription<image::Handle> {
+pub fn raw_frame_subscription(rx: broadcast::Receiver<Frame>) -> Subscription<image::Handle> {
     iced_subscription::from_recipe(CameraSubscription::new(rx))
 }
 

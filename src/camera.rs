@@ -1,8 +1,8 @@
-mod service;
-mod subscription;
+mod cam_service;
+mod cam_sub;
 
-pub use service::{CameraManager, RgbaBuffer};
-pub use subscription::subscription;
+pub use cam_service::{CameraManager, RgbaBuffer};
+pub use cam_sub::raw_frame_subscription;
 
 use std::sync::Arc;
 
