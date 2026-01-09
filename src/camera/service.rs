@@ -7,21 +7,13 @@ use std::sync::{Arc, Mutex};
 
 use tokio::sync::broadcast;
 
-use iced::Subscription;
-use iced::advanced::subscription;
-use iced::advanced::subscription::Hasher;
-use iced::futures::stream;
-use iced::widget::image;
-
 use yuv::{yuyv422_to_rgba, YuvPackedImage};
 
-/// RGBA frame sent to the UI
-/// (width, height, RgbaBugger { frame, pool-pointer })
-type Frame = (u32, u32, Arc<RgbaBuffer>);
+use super::{Frame, WIDTH, HEIGHT};
 
 pub struct RgbaBuffer {
-    data: Vec<u8>,
-    pool: Arc<Mutex<Vec<Vec<u8>>>>,
+    pub data: Vec<u8>,
+    pub pool: Arc<Mutex<Vec<Vec<u8>>>>,
 }
 
 impl Drop for RgbaBuffer {
@@ -33,41 +25,40 @@ impl Drop for RgbaBuffer {
 
 pub struct CameraManager {
     device: String,
+    tx: broadcast::Sender<Frame>,
 }
 
 impl CameraManager {
-    pub const WIDTH: u32 = 640;
-    pub const HEIGHT: u32 = 480;
-
     pub fn new(device: &str) -> Self {
+        let (tx, _) = broadcast::channel::<Frame>(2);
+
         Self {
             device: device.to_string(),
+            tx,
         }
     }
 
-    pub fn start(&self) -> Result<broadcast::Receiver<Frame>, Box<dyn Error>> {
+    pub fn start(&self) -> Result<(), Box<dyn Error>> {
         let mut camera = Camera::new(&self.device)?;
 
         camera.start(&Config {
-            interval: (1, 30), // FPS
-            resolution: (Self::WIDTH, Self::HEIGHT),
-            ..Default::default() // YUYV format
+            interval: (1, 30),
+            resolution: (WIDTH, HEIGHT),
+            ..Default::default()
         })?;
 
         eprintln!("Camera started successfully");
 
-        let (tx, rx) = broadcast::channel::<Frame>(2);
+        let tx = self.tx.clone();
         let pool: Arc<Mutex<Vec<Vec<u8>>>> = Arc::new(Mutex::new(Vec::new()));
-
         let pool_clone = pool.clone();
 
         thread::spawn(move || {
-            let frame_len = (CameraManager::WIDTH * CameraManager::HEIGHT * 4) as usize;
+            let frame_len = (WIDTH * HEIGHT * 4) as usize;
 
             loop {
                 match camera.capture() {
                     Ok(frame) => {
-                        // Try to reuse a buffer
                         let mut rgba = {
                             let mut pool = pool_clone.lock().unwrap();
                             pool.pop().unwrap_or_else(|| vec![0u8; frame_len])
@@ -75,15 +66,15 @@ impl CameraManager {
 
                         let yuv_image = YuvPackedImage {
                             yuy: &frame,
-                            yuy_stride: CameraManager::WIDTH * 2,
-                            width: CameraManager::WIDTH,
-                            height: CameraManager::HEIGHT,
+                            yuy_stride: WIDTH * 2,
+                            width: WIDTH,
+                            height: HEIGHT,
                         };
 
                         if yuyv422_to_rgba(
                             &yuv_image,
                             &mut rgba,
-                            CameraManager::WIDTH * 4,
+                            WIDTH * 4,
                             yuv::YuvRange::Full,
                             yuv::YuvStandardMatrix::Bt601,
                         ).is_ok() {
@@ -92,10 +83,8 @@ impl CameraManager {
                                 pool: pool_clone.clone(),
                             };
 
-                            let arc = Arc::new(buf);
-                            let _ = tx.send((CameraManager::WIDTH, CameraManager::HEIGHT, arc));
+                            let _ = tx.send((WIDTH, HEIGHT, Arc::new(buf)));
                         } else {
-                            // Conversion failed, return buffer to pool
                             pool_clone.lock().unwrap().push(rgba);
                         }
                     }
@@ -107,48 +96,10 @@ impl CameraManager {
             }
         });
 
-
-        Ok(rx)
-    }
-}
-
-/* ============================
-   Iced Subscription
-   ============================ */
-
-pub fn subscription() -> Subscription<image::Handle> {
-    subscription::from_recipe(CameraSubscription)
-}
-
-struct CameraSubscription;
-
-impl subscription::Recipe for CameraSubscription {
-    type Output = image::Handle;
-
-    fn hash(&self, state: &mut Hasher) {
-        use std::hash::Hash;
-        std::any::TypeId::of::<Self>().hash(state);
+        Ok(())
     }
 
-    fn stream(
-        self: Box<Self>,
-        _input: stream::BoxStream<subscription::Event>,
-    ) -> stream::BoxStream<Self::Output> {
-        let manager = CameraManager::new("/dev/video0");
-
-        match manager.start() {
-            Ok(mut rx) => {
-                let s = async_stream::stream! {
-                    while let Ok((w, h, buf)) = rx.recv().await {
-                        yield image::Handle::from_rgba(w, h, buf.data.clone());
-                    }
-                };
-                Box::pin(s)
-            }
-            Err(e) => {
-                eprintln!("Failed to start camera: {}", e);
-                Box::pin(stream::empty())
-            }
-        }
+    pub fn subscribe(&self) -> broadcast::Receiver<Frame> {
+        self.tx.subscribe()
     }
 }

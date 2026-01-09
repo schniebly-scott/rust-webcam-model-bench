@@ -1,16 +1,17 @@
 use iced::widget::{container, image};
 use iced::{Element, Fill, Subscription, Theme};
 
-use crate::camera;
-
-pub fn run() -> iced::Result {
+pub fn run<S>(subscription: S) -> iced::Result
+where
+    S: Fn(&App) -> Subscription<Message> + 'static,
+{
     iced::application(App::new, App::update, App::view)
-        .subscription(App::subscription)
+        .subscription(subscription)
         .theme(App::theme)
         .run()
 }
 
-struct App {
+pub struct App {
     frame: Option<image::Handle>,
 }
 
@@ -46,10 +47,6 @@ impl App {
         };
 
         container(content).padding(20).into()
-    }
-
-    fn subscription(&self) -> Subscription<Message> {
-        camera::subscription().map(Message::NewFrame)
     }
 
     fn theme(&self) -> Theme {
