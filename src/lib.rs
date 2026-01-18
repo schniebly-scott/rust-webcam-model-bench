@@ -6,8 +6,7 @@ use std::sync::Arc;
 use camera::{CameraManager, raw_frame_subscription};
 
 pub fn run() -> iced::Result {
-    let camera = Arc::new(CameraManager::new("/dev/video0"));
-    camera.start().unwrap();
+    let camera = Arc::new(CameraManager::spawn("/dev/video0").expect("Error starting camera"));
 
     // CV subscription
     // let cv_service = cv::spawn(camera.subscribe());

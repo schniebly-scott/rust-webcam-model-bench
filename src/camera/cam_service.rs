@@ -9,8 +9,11 @@ use tokio::sync::broadcast;
 
 use yuv::{yuyv422_to_rgba, YuvPackedImage};
 
-use super::{Frame, WIDTH, HEIGHT};
+use super::{WIDTH, HEIGHT};
 
+/// RGBA frame sent to the UI
+/// (width, height, RgbaBuffer { frame, pool-pointer })
+pub type Frame = (u32, u32, Arc<RgbaBuffer>);
 pub struct RgbaBuffer {
     pub data: Vec<u8>,
     pub pool: Arc<Mutex<Vec<Vec<u8>>>>,
@@ -70,6 +73,7 @@ impl CameraManager {
                             width: WIDTH,
                             height: HEIGHT,
                         };
+                        //TODO: Check if this can be done in the subscription depending on how ONNX model needs image data
 
                         if yuyv422_to_rgba(
                             &yuv_image,
@@ -97,6 +101,13 @@ impl CameraManager {
         });
 
         Ok(())
+    }
+
+    pub fn spawn(device: &str) -> Result<Self, Box<dyn Error>> {
+        let cam = Self::new(device);
+        cam.start()?;
+        //TODO: add more error information above if it fails
+        Ok(cam)
     }
 
     pub fn subscribe(&self) -> broadcast::Receiver<Frame> {
