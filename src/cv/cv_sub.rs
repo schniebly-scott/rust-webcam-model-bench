@@ -42,7 +42,7 @@ impl iced_subscription::Recipe for CVSubscription {
 
         let s = async_stream::stream! {
             while let Ok(frame) = rx.recv().await {
-                // yield <conversion logic here>;
+                yield image::Handle::from_rgba(frame.0, frame.1, frame.2.data.clone());
             }
         };
         Box::pin(s)

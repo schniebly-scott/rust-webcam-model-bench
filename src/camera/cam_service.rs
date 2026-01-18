@@ -73,7 +73,6 @@ impl CameraManager {
                             width: WIDTH,
                             height: HEIGHT,
                         };
-                        //TODO: Check if this can be done in the subscription depending on how ONNX model needs image data
 
                         if yuyv422_to_rgba(
                             &yuv_image,
