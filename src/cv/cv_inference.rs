@@ -7,6 +7,8 @@ use raqote::{
     SolidSource, Source, StrokeStyle,
 };
 
+use super::InfType;
+
 pub const INF_WIDTH: usize = 192;
 pub const INF_HEIGHT: usize = 256;
 
@@ -44,6 +46,7 @@ impl PoseEstimator {
         rgba: &[u8],
         width: u32,
         height: u32,
+        _data_type: InfType
     ) -> ort::Result<Vec<u8>> {
         // ----- Wrap RGBA bytes into an image -----
         let img = DynamicImage::ImageRgba8(

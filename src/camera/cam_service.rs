@@ -10,6 +10,7 @@ use tokio::sync::broadcast;
 use yuv::{yuyv422_to_rgba, YuvPackedImage};
 
 use super::{WIDTH, HEIGHT};
+use crate::SharedFrame;
 
 /// RGBA frame sent to the UI
 /// (width, height, RgbaBuffer { frame, pool-pointer })
@@ -29,15 +30,17 @@ impl Drop for RgbaBuffer {
 pub struct CameraManager {
     device: String,
     tx: broadcast::Sender<Frame>,
+    shared: SharedFrame
 }
 
 impl CameraManager {
-    pub fn new(device: &str) -> Self {
+    pub fn new(device: &str, shared: SharedFrame) -> Self {
         let (tx, _) = broadcast::channel::<Frame>(2);
 
         Self {
             device: device.to_string(),
             tx,
+            shared: shared
         }
     }
 
@@ -53,6 +56,7 @@ impl CameraManager {
         eprintln!("Camera started successfully");
 
         let tx = self.tx.clone();
+        let shared_clone = self.shared.clone();
         let pool: Arc<Mutex<Vec<Vec<u8>>>> = Arc::new(Mutex::new(Vec::new()));
         let pool_clone = pool.clone();
 
@@ -86,7 +90,12 @@ impl CameraManager {
                                 pool: pool_clone.clone(),
                             };
 
-                            let _ = tx.send((WIDTH, HEIGHT, Arc::new(buf)));
+                            let captured_frame: Frame = (WIDTH, HEIGHT, Arc::new(buf));
+
+                            let mut slot = shared_clone.lock().unwrap();
+                            *slot = Some(captured_frame.clone()); // overwrite old frame for ML
+
+                            let _ = tx.send(captured_frame); // Send to UI
                         } else {
                             pool_clone.lock().unwrap().push(rgba);
                         }
@@ -102,8 +111,8 @@ impl CameraManager {
         Ok(())
     }
 
-    pub fn spawn(device: &str) -> Result<Self, Box<dyn Error>> {
-        let cam = Self::new(device);
+    pub fn spawn(device: &str, shared: SharedFrame) -> Result<Self, Box<dyn Error>> {
+        let cam = Self::new(device, shared);
         cam.start()?;
         //TODO: add more error information above if it fails
         Ok(cam)
