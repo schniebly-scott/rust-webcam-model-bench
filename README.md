@@ -14,11 +14,11 @@ Post-MVP Goals:
 - more configuration for output available (bounding boxes, pose tracking, etc.)
 
 ### Pipeline
-
+```
 Camera ---> CV ----> UI
-
-    |________________^
-
+    |                ^
+    |________________|
+```
 Camera's role: 
 1. Captures the frame from the webcam
 2. Converts it from YUYV to RGBA
