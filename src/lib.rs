@@ -3,7 +3,6 @@ pub mod camera;
 pub mod cv;
 
 use std::sync::{Arc, Mutex};
-use tokio::sync::broadcast;
 
 use camera::{CameraManager, Frame};
 use cv::{CVManager, InfType, Inference};

@@ -9,6 +9,7 @@
 
 **Post-MVP Goals**:
 - Display inference times in the UI
+    - include stats about low confidence points trimmed
 - Integrate Windows support
 - Add testing suite
 - Support more model types
