@@ -15,6 +15,8 @@ use crate::SharedFrame;
 /// RGBA frame sent to the UI
 /// (width, height, RgbaBuffer { frame, pool-pointer })
 pub type Frame = (u32, u32, Arc<RgbaBuffer>);
+
+#[derive(Debug)]
 pub struct RgbaBuffer {
     pub data: Vec<u8>,
     pub pool: Arc<Mutex<Vec<Vec<u8>>>>,
@@ -27,6 +29,7 @@ impl Drop for RgbaBuffer {
     }
 }
 
+#[derive(Debug)]
 pub struct CameraManager {
     device: String,
     tx: broadcast::Sender<Frame>,

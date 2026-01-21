@@ -1,52 +1,83 @@
-use iced::widget::{container, image};
+mod subscriptions;
+
+use iced::widget::{container, image, stack};
 use iced::{Element, Fill, Subscription, Theme};
 
-pub fn run<S>(subscription: S) -> iced::Result
-where
-    S: Fn(&App) -> Subscription<Message> + 'static,
-{
-    iced::application(App::new, App::update, App::view)
-        .subscription(subscription)
+use crate::{Pipelines, Inference, Frame};
+
+pub fn run(pipelines: Pipelines) -> iced::Result {
+    iced::application(
+            move || App::new(pipelines.clone()),
+            App::update,
+            App::view,
+        )
+        .subscription(App::subscription)
         .theme(App::theme)
         .run()
 }
 
 pub struct App {
-    frame: Option<image::Handle>,
+    pipelines: Pipelines,
+
+    cam_frame: Option<image::Handle>,
+    cv_frame: Option<image::Handle>,
 }
 
 #[derive(Debug, Clone)]
 pub enum Message {
-    NewFrame(image::Handle),
+    CamFrame(image::Handle),
+    CvFrame(image::Handle),
 }
 
 impl App {
-    fn new() -> Self {
-        Self { frame: None }
+    fn new(pipelines: Pipelines) -> Self {
+        Self {
+            pipelines,
+            cam_frame: None,
+            cv_frame: None,
+        }
     }
 
     fn update(&mut self, message: Message) {
         match message {
-            Message::NewFrame(handle) => {
-                self.frame = Some(handle);
+            Message::CamFrame(frame) => {
+                self.cam_frame = Some(frame);
+            }
+            Message::CvFrame(frame) => {
+                self.cv_frame = Some(frame);
             }
         }
     }
 
     fn view(&self) -> Element<'_, Message> {
-        let content = if let Some(frame) = &self.frame {
-            Element::from(
-                image(frame.clone())
+        let content: Element<_> = match (&self.cam_frame, &self.cv_frame) {
+            (Some(cam), Some(cv)) => {
+                stack![
+                    image(cam.clone()).width(Fill).height(Fill),
+                    image(cv.clone()).width(Fill).height(Fill),
+                ]
+                .into()
+            }
+            (Some(cam), None) => {
+                image(cam.clone())
                     .width(Fill)
                     .height(Fill)
-            )
-        } else {
-            Element::from(
-                container("Waiting for frames...")
-            )
+                    .into()
+            }
+            _ => container("Waiting for frames...").into(),
         };
 
-        container(content).padding(20).into()
+        container(content)
+            .width(Fill)
+            .height(Fill)
+            .into()
+    }
+
+    fn subscription(&self) -> Subscription<Message> {
+        Subscription::batch(vec![
+            subscriptions::raw_frame_subscription(self.pipelines.camera_manager.clone()).map(Message::CamFrame),
+            subscriptions::inference_subscription(self.pipelines.cv_manager.clone()).map(Message::CvFrame),
+        ])
     }
 
     fn theme(&self) -> Theme {

@@ -7,6 +7,7 @@ use crate::camera::RgbaBuffer;
 use crate::SharedFrame;
 use super::{Inference, cv_inference::PoseEstimator, InfType};
 
+#[derive(Debug)]
 pub struct CVManager {
     model_path: String,
     data_type: InfType,

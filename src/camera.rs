@@ -1,8 +1,6 @@
 mod cam_service;
-mod cam_sub;
 
 pub use cam_service::{CameraManager, RgbaBuffer};
-pub use cam_sub::raw_frame_subscription;
 
 pub use cam_service::Frame;
 
