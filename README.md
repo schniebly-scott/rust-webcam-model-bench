@@ -8,10 +8,11 @@
 **MVP**: Run an ONNX computer vision model using Rust with Iced, Ort, and a webcam library.
 
 **Post-MVP Goals**:
-- Add inference times and stats to the UI
-- Windows support will be added
-- more model types supported
-- more configuration for output available (bounding boxes, pose tracking, etc.)
+- Display inference times in the UI
+- Integrate Windows support
+- Add testing suite
+- Support more model types
+- Support more configurations for inference outputs (bounding boxes, pose tracking, etc.)
 
 ### Pipeline
 ```
