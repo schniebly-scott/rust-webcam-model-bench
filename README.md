@@ -34,7 +34,7 @@ Camera ---> CV ----> UI
 1. Pull frame from shared reference
 2. Perform inference on frame
 3. Draw inference on a blank background
-4. Send a copy of image directly to UI using `tokio` broadcast channel
+4. Sends a reference to a buffer in a pool to UI using `tokio` broadcast channel
 
 **UI's role**:
 1. Subscirbe to both broadcast channels
