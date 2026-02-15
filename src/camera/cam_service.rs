@@ -59,7 +59,7 @@ impl CameraManager {
             ..Default::default()
         })?;
 
-        eprintln!("Camera started successfully");
+        println!("Camera started successfully");
 
         let tx = self.tx.clone();
         let shared_clone = self.shared.clone();

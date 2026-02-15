@@ -40,7 +40,7 @@ impl CVManager {
         let mut model_lock = self.model.lock().unwrap();
         *model_lock = Some(estimator);
 
-        eprintln!("Loading model took {:?}", elapsed);
+        println!("Loading model took {:?}", elapsed);
         Ok(elapsed)
     }
 
@@ -89,7 +89,6 @@ impl CVManager {
                         }
                     };
                     let elapsed = now.elapsed();
-                    eprintln!("Inference took {:?}", elapsed);
 
                     // ---------- Publish result ----------
                     let buf = RgbaBuffer {
@@ -99,7 +98,7 @@ impl CVManager {
 
                     let _ = tx_clone.send(Inference { frame: (width, height, Arc::new(buf)), inf_time: elapsed });
                 } else {
-                    eprintln!("No frame available, yield CPU");
+                    //No frame available, yield CPU
                     std::thread::sleep(Duration::from_millis(5));
                 }
             }
