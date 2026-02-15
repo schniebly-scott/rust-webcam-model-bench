@@ -10,10 +10,13 @@
 **Post-MVP Goals**:
 - Display inference times in the UI
     - include stats about low confidence points trimmed
+- Move config to .env file
+- Make a trait for Manager structs (start, stop, spawn, subscribe)
 - Integrate Windows support
 - Add testing suite
 - Support more model types
 - Support more configurations for inference outputs (bounding boxes, pose tracking, etc.)
+- Add line graph to view inference time over time
 
 ### Pipeline
 ```

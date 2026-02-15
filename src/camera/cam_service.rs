@@ -1,5 +1,6 @@
 use rscam::{Camera, Config};
 
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::thread;
 use std::time::Duration;
 use std::error::Error;
@@ -33,7 +34,8 @@ impl Drop for RgbaBuffer {
 pub struct CameraManager {
     device: String,
     tx: broadcast::Sender<Frame>,
-    shared: SharedFrame
+    shared: SharedFrame,
+    running: Arc<AtomicBool>
 }
 
 impl CameraManager {
@@ -43,7 +45,8 @@ impl CameraManager {
         Self {
             device: device.to_string(),
             tx,
-            shared: shared
+            shared: shared,
+            running: Arc::new(AtomicBool::new(false)),
         }
     }
 
@@ -63,10 +66,13 @@ impl CameraManager {
         let pool: Arc<Mutex<Vec<Vec<u8>>>> = Arc::new(Mutex::new(Vec::new()));
         let pool_clone = pool.clone();
 
+        let running_clone = self.running.clone();
+        running_clone.store(true, Ordering::SeqCst);
+
         thread::spawn(move || {
             let frame_len = (WIDTH * HEIGHT * 4) as usize;
 
-            loop {
+            while running_clone.load(Ordering::SeqCst) {
                 match camera.capture() {
                     Ok(frame) => {
                         let mut rgba = {
@@ -112,6 +118,10 @@ impl CameraManager {
         });
 
         Ok(())
+    }
+
+    pub fn stop(&self) {
+        self.running.store(false, Ordering::SeqCst);
     }
 
     pub fn spawn(device: &str, shared: SharedFrame) -> Result<Self, Box<dyn Error>> {

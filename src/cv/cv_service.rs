@@ -1,3 +1,4 @@
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Duration;
 use std::{thread, time::Instant, error::Error};
 use std::sync::{Arc, Mutex};
@@ -10,9 +11,12 @@ use super::{Inference, cv_inference::PoseEstimator, InfType};
 #[derive(Debug)]
 pub struct CVManager {
     model_path: String,
+    model_load_time: Arc<Mutex<Option<Duration>>>,
     data_type: InfType,
+    pose_estimator: Arc<Mutex<Option<PoseEstimator>>>,
     shared: SharedFrame,
     tx: broadcast::Sender<Inference>,
+    running: Arc<AtomicBool>
 }
 
 impl CVManager {
@@ -21,32 +25,56 @@ impl CVManager {
 
         Self {
             model_path: String::from(model_path),
+            model_load_time: Arc::new(Mutex::new(None)),
             data_type,
+            pose_estimator: Arc::new(Mutex::new(None)),
             shared: shared,
             tx,
+            running: Arc::new(AtomicBool::new(false))
         }
     }
 
+    pub fn load_model(&self) -> Result<(), Box<dyn Error>> {
+        let now = Instant::now();
+        let estimator = PoseEstimator::new(&self.model_path)?;
+        let elapsed = now.elapsed();
+
+        let mut time_lock = self.model_load_time.lock().unwrap();
+        *time_lock = Some(elapsed);
+
+        let mut pose_lock = self.pose_estimator.lock().unwrap();
+        *pose_lock = Some(estimator);
+
+        eprintln!("Loading model took {:?}", elapsed);
+        Ok(())
+    }
+
+
     pub fn start(&self) -> Result<(), Box<dyn Error>> {
-        let model_path = self.model_path.clone();
         let tx_clone = self.tx.clone();
         let shared_clone = self.shared.clone();
         let data_type_clone = self.data_type;
+        let pose_estimator_clone = self.pose_estimator.clone();
+        
+        let running_clone = self.running.clone();
+        running_clone.store(true, Ordering::SeqCst);
 
         let pool: Arc<Mutex<Vec<Vec<u8>>>> = Arc::new(Mutex::new(Vec::new()));
         let pool_clone = pool.clone();
 
         thread::spawn(move || {
-            // ---------- Load model inside thread ----------
-            let mut pose = match PoseEstimator::new(&model_path) {
-                Ok(p) => p,
-                Err(e) => {
-                    eprintln!("Failed to load model: {e}");
+            // ---------- Get reference to Model inside thread ----------
+            let mut pose_lock = pose_estimator_clone.lock().unwrap();
+
+            let pose = match pose_lock.as_mut() {
+                Some(p) => p,
+                None => {
+                    eprintln!("Model not loaded!");
                     return;
                 }
             };
 
-            loop {
+            while running_clone.load(Ordering::SeqCst) {
                 let frame_opt = {
                     let mut slot = shared_clone.lock().unwrap();
                     slot.take() // take() = replace with None
@@ -65,7 +93,7 @@ impl CVManager {
                             continue;
                         }
                     };
-                    println!("Inference took {:?}", now.elapsed());
+                    eprintln!("Inference took {:?}", now.elapsed());
 
                     // ---------- Publish result ----------
                     let buf = RgbaBuffer {
@@ -84,6 +112,10 @@ impl CVManager {
         Ok(())
     }
 
+    pub fn stop(&self) {
+        self.running.store(false, Ordering::SeqCst);
+    }
+
     pub fn spawn(model_path: &str, data_type: InfType, shared: SharedFrame) -> Result<Self, Box<dyn Error>> {
         let cv = Self::new(model_path, data_type, shared);
         cv.start()?;
@@ -92,5 +124,9 @@ impl CVManager {
 
     pub fn subscribe(&self) -> broadcast::Receiver<Inference> {
         self.tx.subscribe()
+    }
+
+    pub fn model_load_time(&self) -> Option<Duration> {
+        *self.model_load_time.lock().unwrap()
     }
 }
