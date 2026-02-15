@@ -31,11 +31,11 @@ const KEEP_KEYPOINTS: [usize; 5] = [0, 5, 6, 7, 8];
 type Keypoints = [Option<(f32, f32, f32)>; 17];
 
 #[derive(Debug)]
-pub struct PoseEstimator {
+pub struct Model {
     session: Session,
 }
 
-impl PoseEstimator {
+impl Model {
     pub fn new<P: AsRef<std::path::Path>>(model_path: P) -> ort::Result<Self> {
         let session = Session::builder()?
             .commit_from_file(model_path)?;

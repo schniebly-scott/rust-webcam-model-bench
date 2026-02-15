@@ -6,13 +6,13 @@ use std::sync::{Arc, Mutex};
 use tokio::sync::broadcast;
 use crate::camera::RgbaBuffer;
 use crate::SharedFrame;
-use super::{Inference, cv_inference::PoseEstimator, InfType};
+use super::{Inference, cv_inference::Model, InfType};
 
 #[derive(Debug)]
 pub struct CVManager {
     model_path: String,
     data_type: InfType,
-    pose_estimator: Arc<Mutex<Option<PoseEstimator>>>,
+    model: Arc<Mutex<Option<Model>>>,
     shared: SharedFrame,
     tx: broadcast::Sender<Inference>,
     running: Arc<AtomicBool>
@@ -25,7 +25,7 @@ impl CVManager {
         Self {
             model_path: String::from(model_path),
             data_type,
-            pose_estimator: Arc::new(Mutex::new(None)),
+            model: Arc::new(Mutex::new(None)),
             shared: shared,
             tx,
             running: Arc::new(AtomicBool::new(false))
@@ -34,11 +34,11 @@ impl CVManager {
 
     pub fn load_model(&self) -> Result<Duration, Box<dyn Error>> {
         let now = Instant::now();
-        let estimator = PoseEstimator::new(&self.model_path)?;
+        let estimator = Model::new(&self.model_path)?;
         let elapsed = now.elapsed();
 
-        let mut pose_lock = self.pose_estimator.lock().unwrap();
-        *pose_lock = Some(estimator);
+        let mut model_lock = self.model.lock().unwrap();
+        *model_lock = Some(estimator);
 
         eprintln!("Loading model took {:?}", elapsed);
         Ok(elapsed)
@@ -49,7 +49,7 @@ impl CVManager {
         let tx_clone = self.tx.clone();
         let shared_clone = self.shared.clone();
         let data_type_clone = self.data_type;
-        let pose_estimator_clone = self.pose_estimator.clone();
+        let model_clone = self.model.clone();
         
         let running_clone = self.running.clone();
         running_clone.store(true, Ordering::SeqCst);
@@ -59,9 +59,9 @@ impl CVManager {
 
         thread::spawn(move || {
             // ---------- Get reference to Model inside thread ----------
-            let mut pose_lock = pose_estimator_clone.lock().unwrap();
+            let mut model_lock = model_clone.lock().unwrap();
 
-            let pose = match pose_lock.as_mut() {
+            let model = match model_lock.as_mut() {
                 Some(p) => p,
                 None => {
                     eprintln!("Model not loaded!");
@@ -81,7 +81,7 @@ impl CVManager {
 
                     // ---------- Inference ----------
                     let now = Instant::now();
-                    let output = match pose.process_rgba(&rgba, width, height, data_type_clone) {
+                    let output = match model.process_rgba(&rgba, width, height, data_type_clone) {
                         Ok(o) => o,
                         Err(e) => {
                             eprintln!("Inference error: {e}");
