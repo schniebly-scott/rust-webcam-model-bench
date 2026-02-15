@@ -3,6 +3,8 @@
 
 **Currently only works on Linux, since the webcam library is based on v4l2**
 
+![Project Screenshot](assets/screengrab.jpg)
+
 ### Overview
 
 **MVP**: Run an ONNX computer vision model using Rust with Iced, Ort, and a webcam library.
