@@ -8,7 +8,7 @@
 **MVP**: Run an ONNX computer vision model using Rust with Iced, Ort, and a webcam library.
 
 **Post-MVP Goals**:
-- Move config to .env file
+- Move config to config file (serde and toml?)
 - Make a trait for Manager structs (start, stop, spawn, subscribe)
 - Integrate Windows support
 - Add testing suite
