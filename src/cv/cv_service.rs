@@ -11,7 +11,6 @@ use super::{Inference, cv_inference::PoseEstimator, InfType};
 #[derive(Debug)]
 pub struct CVManager {
     model_path: String,
-    model_load_time: Arc<Mutex<Option<Duration>>>,
     data_type: InfType,
     pose_estimator: Arc<Mutex<Option<PoseEstimator>>>,
     shared: SharedFrame,
@@ -25,7 +24,6 @@ impl CVManager {
 
         Self {
             model_path: String::from(model_path),
-            model_load_time: Arc::new(Mutex::new(None)),
             data_type,
             pose_estimator: Arc::new(Mutex::new(None)),
             shared: shared,
@@ -34,19 +32,16 @@ impl CVManager {
         }
     }
 
-    pub fn load_model(&self) -> Result<(), Box<dyn Error>> {
+    pub fn load_model(&self) -> Result<Duration, Box<dyn Error>> {
         let now = Instant::now();
         let estimator = PoseEstimator::new(&self.model_path)?;
         let elapsed = now.elapsed();
-
-        let mut time_lock = self.model_load_time.lock().unwrap();
-        *time_lock = Some(elapsed);
 
         let mut pose_lock = self.pose_estimator.lock().unwrap();
         *pose_lock = Some(estimator);
 
         eprintln!("Loading model took {:?}", elapsed);
-        Ok(())
+        Ok(elapsed)
     }
 
 
@@ -93,7 +88,8 @@ impl CVManager {
                             continue;
                         }
                     };
-                    eprintln!("Inference took {:?}", now.elapsed());
+                    let elapsed = now.elapsed();
+                    eprintln!("Inference took {:?}", elapsed);
 
                     // ---------- Publish result ----------
                     let buf = RgbaBuffer {
@@ -101,7 +97,7 @@ impl CVManager {
                         pool: pool_clone.clone(),
                     };
 
-                    let _ = tx_clone.send((width, height, Arc::new(buf))); // Frame
+                    let _ = tx_clone.send(Inference { frame: (width, height, Arc::new(buf)), inf_time: elapsed });
                 } else {
                     eprintln!("No frame available, yield CPU");
                     std::thread::sleep(Duration::from_millis(5));
@@ -124,9 +120,5 @@ impl CVManager {
 
     pub fn subscribe(&self) -> broadcast::Receiver<Inference> {
         self.tx.subscribe()
-    }
-
-    pub fn model_load_time(&self) -> Option<Duration> {
-        *self.model_load_time.lock().unwrap()
     }
 }

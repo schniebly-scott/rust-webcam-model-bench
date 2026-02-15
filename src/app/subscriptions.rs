@@ -1,4 +1,4 @@
-use std::sync::Arc;
+use std::{sync::Arc, time::Duration};
 
 use iced::advanced::subscription::Hasher;
 use iced::futures::stream;
@@ -58,7 +58,7 @@ impl iced_subscription::Recipe for CameraSubscription {
    CV Subscription
    ============================ */
 
-pub fn inference_subscription(cv_manager: Arc<CVManager>) -> Subscription<image::Handle> {
+pub fn inference_subscription(cv_manager: Arc<CVManager>) -> Subscription<(image::Handle, Duration)> {
     let rx = cv_manager.subscribe();
     iced_subscription::from_recipe(CVSubscription::new(rx))
 }
@@ -74,7 +74,8 @@ impl CVSubscription {
 }
 
 impl iced_subscription::Recipe for CVSubscription {
-    type Output = image::Handle;
+    type Output = (image::Handle, Duration);
+    //TODO: make the output inferred from Inference type but still transform frame to handle
 
     fn hash(&self, state: &mut Hasher) {
         use std::hash::Hash;
@@ -88,8 +89,9 @@ impl iced_subscription::Recipe for CVSubscription {
         let mut rx = self.rx;
 
         let s = async_stream::stream! {
-            while let Ok(frame) = rx.recv().await {
-                yield image::Handle::from_rgba(frame.0, frame.1, frame.2.data.clone());
+            while let Ok(inference) = rx.recv().await {
+                let frame = inference.frame;
+                yield (image::Handle::from_rgba(frame.0, frame.1, frame.2.data.clone()), inference.inf_time);
             }
         };
         Box::pin(s)

@@ -29,8 +29,8 @@ pub struct App {
     cam_frame: Option<image::Handle>,
     cv_frame: Option<image::Handle>,
     
-    model_load_time_ms: Option<Duration>,
-    inference_time_ms: Option<Duration>,
+    model_load_time: Option<Duration>,
+    inference_time: Option<Duration>,
 
     inference_state: InferenceState,
 }
@@ -38,7 +38,7 @@ pub struct App {
 #[derive(Debug, Clone)]
 pub enum Message {
     CamFrame(image::Handle),
-    CvFrame(image::Handle),
+    CvInference((image::Handle, Duration)),
     LoadModelPressed,
     StartInferencePressed,
     StopInferencePressed,
@@ -50,8 +50,8 @@ impl App {
             pipelines,
             cam_frame: None,
             cv_frame: None,
-            model_load_time_ms: None,
-            inference_time_ms: None,
+            model_load_time: None,
+            inference_time: None,
             inference_state: InferenceState::Unloaded,
         }
     }
@@ -61,12 +61,19 @@ impl App {
             Message::CamFrame(frame) => {
                 self.cam_frame = Some(frame);
             }
-            Message::CvFrame(frame) => {
+            Message::CvInference((frame, inf_time)) => {
                 self.cv_frame = Some(frame);
+                self.inference_time = Some(inf_time);
             }
             Message::LoadModelPressed => {
-                self.pipelines.cv_manager.load_model().expect("Unable to load model");
-                self.model_load_time_ms = self.pipelines.cv_manager.model_load_time();
+                match self.pipelines.cv_manager.load_model() {
+                    Ok(elapsed) => {
+                        self.model_load_time = Some(elapsed);
+                    }
+                    Err(e) => {
+                        eprintln!("Unable to load model: {}", e)
+                    }
+                };
                 self.inference_state = InferenceState::Stopped;
             }
             Message::StartInferencePressed => {
@@ -131,7 +138,7 @@ impl App {
                 ..Font::DEFAULT
             }).size(16),
             text(
-                self.model_load_time_ms
+                self.model_load_time
                     .map(|t| format!("{:?}", t))
                     .unwrap_or_else(|| "Not loaded".to_string())
             )
@@ -145,7 +152,7 @@ impl App {
                 ..Font::DEFAULT
             }).size(16),
             text(
-                self.inference_time_ms
+                self.inference_time
                     .map(|t| format!("{:?}", t))
                     .unwrap_or_else(|| "Not inference yet".to_string())
             )
@@ -178,7 +185,7 @@ impl App {
     fn subscription(&self) -> Subscription<Message> {
         Subscription::batch(vec![
             subscriptions::raw_frame_subscription(self.pipelines.camera_manager.clone()).map(Message::CamFrame),
-            subscriptions::inference_subscription(self.pipelines.cv_manager.clone()).map(Message::CvFrame),
+            subscriptions::inference_subscription(self.pipelines.cv_manager.clone()).map(Message::CvInference),
         ])
     }
 
