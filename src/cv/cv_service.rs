@@ -1,12 +1,12 @@
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Duration;
-use std::{thread, time::Instant, error::Error};
+use std::{time::Instant, error::Error};
 use std::sync::{Arc, Mutex};
 
 use tokio::sync::broadcast;
-use crate::camera::RgbaBuffer;
 use crate::SharedFrame;
 use crate::config::ModelConfig;
+use crate::cv::cv_worker::CVWorker;
 use super::{Inference, cv_inference::Model};
 
 #[derive(Debug)]
@@ -45,65 +45,15 @@ impl CVManager {
 
 
     pub fn start(&self) -> Result<(), Box<dyn Error>> {
-        let tx_clone = self.tx.clone();
-        let shared_clone = self.shared.clone();
-        let data_type_clone = self.config.inference_type;
-        let model_clone = self.model.clone();
-        
-        let running_clone = self.running.clone();
-        running_clone.store(true, Ordering::SeqCst);
+        self.running.store(true, Ordering::SeqCst);
 
-        let pool: Arc<Mutex<Vec<Vec<u8>>>> = Arc::new(Mutex::new(Vec::new()));
-        let pool_clone = pool.clone();
-
-        thread::spawn(move || {
-            // ---------- Get reference to Model inside thread ----------
-            let mut model_lock = model_clone.lock().unwrap();
-
-            let model = match model_lock.as_mut() {
-                Some(p) => p,
-                None => {
-                    eprintln!("Model not loaded!");
-                    return;
-                }
-            };
-
-            while running_clone.load(Ordering::SeqCst) {
-                let frame_opt = {
-                    let mut slot = shared_clone.lock().unwrap();
-                    slot.take() // take() = replace with None
-                };
-
-                if let Some(frame) = frame_opt {
-                    // ---------- Extract RGBA ----------
-                    let (width, height, rgba) = (frame.0, frame.1, frame.2.data.clone());
-
-                    // ---------- Inference ----------
-                    let now = Instant::now();
-                    let output = match model.process_rgba(&rgba, width, height, data_type_clone) {
-                        Ok(o) => o,
-                        Err(e) => {
-                            eprintln!("Inference error: {e}");
-                            continue;
-                        }
-                    };
-                    let elapsed = now.elapsed();
-
-                    // ---------- Publish result ----------
-                    let buf = RgbaBuffer {
-                        data: output,
-                        pool: pool_clone.clone(),
-                    };
-
-                    let _ = tx_clone.send(Inference { frame: (width, height, Arc::new(buf)), inf_time: elapsed });
-                } else {
-                    //No frame available, yield CPU
-                    std::thread::sleep(Duration::from_millis(5));
-                }
-            }
-        });
-
-        Ok(())
+        CVWorker {
+            config: self.config.clone(),
+            model: self.model.clone(),
+            shared: self.shared.clone(),
+            tx: self.tx.clone(),
+            running: self.running.clone()
+        }.spawn()
     }
 
     pub fn stop(&self) {
