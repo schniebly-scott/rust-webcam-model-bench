@@ -22,7 +22,7 @@ impl CVManager {
         Self {
             config,
             model: Arc::new(Mutex::new(None)),
-            shared: shared,
+            shared,
             core: ServiceCore::new(1),
         }
     }

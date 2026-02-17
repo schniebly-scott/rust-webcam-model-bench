@@ -32,7 +32,7 @@ impl CameraManager {
     pub fn new(config: CameraConfig, shared: SharedFrame) -> Self {
         Self {
             config,
-            shared: shared,
+            shared,
             core: ServiceCore::new(2)
         }
     } 
