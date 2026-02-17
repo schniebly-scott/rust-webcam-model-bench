@@ -6,12 +6,12 @@ use std::sync::{Arc, Mutex};
 use tokio::sync::broadcast;
 use crate::camera::RgbaBuffer;
 use crate::SharedFrame;
-use super::{Inference, cv_inference::Model, InfType};
+use crate::config::ModelConfig;
+use super::{Inference, cv_inference::Model};
 
 #[derive(Debug)]
 pub struct CVManager {
-    model_path: String,
-    data_type: InfType,
+    config: ModelConfig,
     model: Arc<Mutex<Option<Model>>>,
     shared: SharedFrame,
     tx: broadcast::Sender<Inference>,
@@ -19,12 +19,11 @@ pub struct CVManager {
 }
 
 impl CVManager {
-    pub fn new(model_path: &str, data_type: InfType, shared: SharedFrame) -> Self {
+    pub fn new(config: ModelConfig, shared: SharedFrame) -> Self {
         let (tx, _) = broadcast::channel::<Inference>(2);
 
         Self {
-            model_path: String::from(model_path),
-            data_type,
+            config,
             model: Arc::new(Mutex::new(None)),
             shared: shared,
             tx,
@@ -34,7 +33,7 @@ impl CVManager {
 
     pub fn load_model(&self) -> Result<Duration, Box<dyn Error>> {
         let now = Instant::now();
-        let estimator = Model::new(&self.model_path)?;
+        let estimator = Model::new(&self.config.model_path)?;
         let elapsed = now.elapsed();
 
         let mut model_lock = self.model.lock().unwrap();
@@ -48,7 +47,7 @@ impl CVManager {
     pub fn start(&self) -> Result<(), Box<dyn Error>> {
         let tx_clone = self.tx.clone();
         let shared_clone = self.shared.clone();
-        let data_type_clone = self.data_type;
+        let data_type_clone = self.config.inference_type;
         let model_clone = self.model.clone();
         
         let running_clone = self.running.clone();
@@ -111,8 +110,8 @@ impl CVManager {
         self.running.store(false, Ordering::SeqCst);
     }
 
-    pub fn spawn(model_path: &str, data_type: InfType, shared: SharedFrame) -> Result<Self, Box<dyn Error>> {
-        let cv = Self::new(model_path, data_type, shared);
+    pub fn spawn(config: ModelConfig, shared: SharedFrame) -> Result<Self, Box<dyn Error>> {
+        let cv = Self::new(config, shared);
         cv.start()?;
         Ok(cv)
     }

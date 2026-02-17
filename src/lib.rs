@@ -1,11 +1,13 @@
 pub mod app;
 pub mod camera;
 pub mod cv;
+pub mod config;
 
 use std::sync::{Arc, Mutex};
 
 use camera::{CameraManager, Frame};
-use cv::{CVManager, InfType, Inference};
+use cv::{CVManager, Inference};
+use config::Config;
 
 pub use app::run;
 
@@ -18,27 +20,25 @@ pub struct Pipelines {
 }
 
 pub fn spawn_pipelines() -> Pipelines {
-    let model_path = "model.onnx";
-    let data_type: InfType = InfType::Pose;
+    let config = Config::load("config.toml").expect("Unable to load config");
 
     let shared_frame: SharedFrame = Arc::new(Mutex::new(None));
 
-    let camera_manager = Arc::new(CameraManager::spawn("/dev/video0", shared_frame.clone())
+    let camera_manager = Arc::new(CameraManager::spawn(config.camera, shared_frame.clone())
         .expect("Error starting camera"));
-    let cv_manager = Arc::new(CVManager::spawn(model_path, data_type, shared_frame.clone())
+    let cv_manager = Arc::new(CVManager::spawn(config.model, shared_frame.clone())
         .expect("Error starting cv model"));
 
     Pipelines { camera_manager, cv_manager }
 }
 
 pub fn new_pipelines() -> Pipelines {
-    let model_path = "model.onnx";
-    let data_type: InfType = InfType::Pose;
+    let config = Config::load("config.toml").expect("Unable to load config");
 
     let shared_frame: SharedFrame = Arc::new(Mutex::new(None));
 
-    let camera_manager = Arc::new(CameraManager::new("/dev/video0", shared_frame.clone()));
-    let cv_manager = Arc::new(CVManager::new(model_path, data_type, shared_frame.clone()));
+    let camera_manager = Arc::new(CameraManager::new(config.camera, shared_frame.clone()));
+    let cv_manager = Arc::new(CVManager::new(config.model, shared_frame.clone()));
 
     Pipelines { camera_manager, cv_manager }
 }

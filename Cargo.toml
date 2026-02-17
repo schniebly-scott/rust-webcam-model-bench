@@ -18,3 +18,5 @@ ndarray = "0.17.2"
 image = "0.25.9"
 ort = "2.0.0-rc.11"
 raqote = "0.8.5"
+serde = { version = "1.0.228", features = ["derive"] } 
+toml = "1.0.2"

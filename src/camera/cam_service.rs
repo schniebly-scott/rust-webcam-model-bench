@@ -10,8 +10,8 @@ use tokio::sync::broadcast;
 
 use yuv::{yuyv422_to_rgba, YuvPackedImage};
 
-use super::{WIDTH, HEIGHT};
 use crate::SharedFrame;
+use crate::config::CameraConfig;
 
 /// RGBA frame sent to the UI
 /// (width, height, RgbaBuffer { frame, pool-pointer })
@@ -32,18 +32,18 @@ impl Drop for RgbaBuffer {
 
 #[derive(Debug)]
 pub struct CameraManager {
-    device: String,
+    config: CameraConfig,
     tx: broadcast::Sender<Frame>,
     shared: SharedFrame,
-    running: Arc<AtomicBool>
+    running: Arc<AtomicBool>,
 }
 
 impl CameraManager {
-    pub fn new(device: &str, shared: SharedFrame) -> Self {
+    pub fn new(config: CameraConfig, shared: SharedFrame) -> Self {
         let (tx, _) = broadcast::channel::<Frame>(2);
 
         Self {
-            device: device.to_string(),
+            config,
             tx,
             shared: shared,
             running: Arc::new(AtomicBool::new(false)),
@@ -51,11 +51,11 @@ impl CameraManager {
     }
 
     pub fn start(&self) -> Result<(), Box<dyn Error>> {
-        let mut camera = Camera::new(&self.device)?;
+        let mut camera = Camera::new(&self.config.device)?;
 
         camera.start(&Config {
             interval: (1, 30),
-            resolution: (WIDTH, HEIGHT),
+            resolution: (self.config.width, self.config.height),
             ..Default::default()
         })?;
 
@@ -65,12 +65,14 @@ impl CameraManager {
         let shared_clone = self.shared.clone();
         let pool: Arc<Mutex<Vec<Vec<u8>>>> = Arc::new(Mutex::new(Vec::new()));
         let pool_clone = pool.clone();
+        let width_clone = self.config.width;
+        let height_clone = self.config.height;
 
         let running_clone = self.running.clone();
         running_clone.store(true, Ordering::SeqCst);
 
         thread::spawn(move || {
-            let frame_len = (WIDTH * HEIGHT * 4) as usize;
+            let frame_len = (width_clone * height_clone * 4) as usize;
 
             while running_clone.load(Ordering::SeqCst) {
                 match camera.capture() {
@@ -82,15 +84,15 @@ impl CameraManager {
 
                         let yuv_image = YuvPackedImage {
                             yuy: &frame,
-                            yuy_stride: WIDTH * 2,
-                            width: WIDTH,
-                            height: HEIGHT,
+                            yuy_stride: width_clone * 2,
+                            width: width_clone,
+                            height: height_clone,
                         };
 
                         if yuyv422_to_rgba(
                             &yuv_image,
                             &mut rgba,
-                            WIDTH * 4,
+                            width_clone * 4,
                             yuv::YuvRange::Full,
                             yuv::YuvStandardMatrix::Bt601,
                         ).is_ok() {
@@ -99,7 +101,7 @@ impl CameraManager {
                                 pool: pool_clone.clone(),
                             };
 
-                            let captured_frame: Frame = (WIDTH, HEIGHT, Arc::new(buf));
+                            let captured_frame: Frame = (width_clone, height_clone, Arc::new(buf));
 
                             let mut slot = shared_clone.lock().unwrap();
                             *slot = Some(captured_frame.clone()); // overwrite old frame for ML
@@ -124,8 +126,8 @@ impl CameraManager {
         self.running.store(false, Ordering::SeqCst);
     }
 
-    pub fn spawn(device: &str, shared: SharedFrame) -> Result<Self, Box<dyn Error>> {
-        let cam = Self::new(device, shared);
+    pub fn spawn(config: CameraConfig, shared: SharedFrame) -> Result<Self, Box<dyn Error>> {
+        let cam = Self::new(config, shared);
         cam.start()?;
         //TODO: add more error information above if it fails
         Ok(cam)
