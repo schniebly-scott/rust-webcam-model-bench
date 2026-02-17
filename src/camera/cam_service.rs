@@ -1,10 +1,10 @@
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::atomic::Ordering;
 use std::error::Error;
 use std::sync::{Arc, Mutex};
-use tokio::sync::broadcast;
 
 use crate::SharedFrame;
 use crate::config::CameraConfig;
+use crate::utils::{ManagedService, ServiceCore};
 
 use super::{ Frame, cam_worker::CameraWorker };
 
@@ -24,47 +24,35 @@ impl Drop for RgbaBuffer {
 #[derive(Debug)]
 pub struct CameraManager {
     config: CameraConfig,
-    tx: broadcast::Sender<Frame>,
+    core: ServiceCore<Frame>,
     shared: SharedFrame,
-    running: Arc<AtomicBool>,
 }
 
 impl CameraManager {
     pub fn new(config: CameraConfig, shared: SharedFrame) -> Self {
-        let (tx, _) = broadcast::channel::<Frame>(2);
-
         Self {
             config,
-            tx,
             shared: shared,
-            running: Arc::new(AtomicBool::new(false)),
+            core: ServiceCore::new(2)
         }
+    } 
+}
+
+impl ManagedService for CameraManager {
+    type Output = Frame;
+
+    fn core(&self) -> &ServiceCore<Self::Output> {
+        &self.core
     }
 
-    pub fn start(&self) -> Result<(), Box<dyn Error>> {
-        self.running.store(true, Ordering::SeqCst);
+    fn start(&self) -> Result<(), Box<dyn Error>> {
+        self.core.running.store(true, Ordering::SeqCst);
 
         CameraWorker {
             config: self.config.clone(),
-            tx: self.tx.clone(),
+            core: self.core.clone(),
             shared: self.shared.clone(),
-            running: self.running.clone(),
         }
         .spawn()
-    }
-
-    pub fn stop(&self) {
-        self.running.store(false, Ordering::SeqCst);
-    }
-
-    pub fn spawn(config: CameraConfig, shared: SharedFrame) -> Result<Self, Box<dyn Error>> {
-        let cam = Self::new(config, shared);
-        cam.start()?;
-        //TODO: add more error information above if it fails
-        Ok(cam)
-    }
-
-    pub fn subscribe(&self) -> broadcast::Receiver<Frame> {
-        self.tx.subscribe()
     }
 }

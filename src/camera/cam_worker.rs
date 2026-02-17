@@ -1,26 +1,24 @@
 use rscam::{Camera, Config};
 
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::atomic::Ordering;
 use std::thread;
 use std::time::Duration;
 use std::error::Error;
 use std::sync::{Arc, Mutex};
-
-use tokio::sync::broadcast;
 
 use yuv::{yuyv422_to_rgba, YuvPackedImage};
 
 use crate::SharedFrame;
 use crate::camera::RgbaBuffer;
 use crate::config::CameraConfig;
+use crate::utils::ServiceCore;
 
 use super::Frame;
 
 pub struct CameraWorker {
     pub config: CameraConfig,
-    pub tx: broadcast::Sender<Frame>,
+    pub core: ServiceCore<Frame>,
     pub shared: SharedFrame,
-    pub running: Arc<AtomicBool>,
 }
 
 impl CameraWorker {
@@ -40,7 +38,7 @@ impl CameraWorker {
         thread::spawn(move || {
             let frame_len = (self.config.width * self.config.height * 4) as usize;
 
-            while self.running.load(Ordering::SeqCst) {
+            while self.core.running.load(Ordering::SeqCst) {
                 match camera.capture() {
                     Ok(frame) => {
                         let mut rgba = {
@@ -72,7 +70,7 @@ impl CameraWorker {
                             let mut slot = self.shared.lock().unwrap();
                             *slot = Some(captured_frame.clone()); // overwrite old frame for ML
 
-                            let _ = self.tx.send(captured_frame); // Send to UI
+                            let _ = self.core.tx.send(captured_frame); // Send to UI
                         } else {
                             pool.lock().unwrap().push(rgba);
                         }

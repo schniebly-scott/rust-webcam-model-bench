@@ -1,20 +1,19 @@
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::atomic::Ordering;
 use std::time::Duration;
 use std::{thread, time::Instant, error::Error};
 use std::sync::{Arc, Mutex};
 
-use tokio::sync::broadcast;
 use crate::camera::RgbaBuffer;
 use crate::SharedFrame;
 use crate::config::ModelConfig;
+use crate::utils::ServiceCore;
 use super::{Inference, cv_inference::Model};
 
 pub struct CVWorker {
     pub config: ModelConfig,
     pub model: Arc<Mutex<Option<Model>>>,
     pub shared: SharedFrame,
-    pub tx: broadcast::Sender<Inference>,
-    pub running: Arc<AtomicBool>
+    pub core: ServiceCore<Inference>
 }
 
 impl CVWorker {
@@ -33,7 +32,7 @@ impl CVWorker {
                 }
             };
 
-            while self.running.load(Ordering::SeqCst) {
+            while self.core.running.load(Ordering::SeqCst) {
                 let frame_opt = {
                     let mut slot = self.shared.lock().unwrap();
                     slot.take() // take() = replace with None
@@ -60,7 +59,7 @@ impl CVWorker {
                         pool: pool.clone(),
                     };
 
-                    let _ = self.tx.send(Inference { frame: (width, height, Arc::new(buf)), inf_time: elapsed });
+                    let _ = self.core.tx.send(Inference { frame: (width, height, Arc::new(buf)), inf_time: elapsed });
                 } else {
                     //No frame available, yield CPU
                     std::thread::sleep(Duration::from_millis(5));

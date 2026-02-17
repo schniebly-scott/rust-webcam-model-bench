@@ -5,6 +5,7 @@ use std::time::Duration;
 use iced::widget::{column, row, button, container, image, stack, text};
 use iced::{Alignment, Element, Fill, Font, Subscription, Theme};
 use crate::{Frame, Inference};
+use crate::utils::ManagedService;
 
 enum InferenceState {
     Unloaded,

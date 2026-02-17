@@ -11,7 +11,6 @@
 
 **Post-MVP Goals**:
 - Integrate Windows support
-- Make a trait for Manager structs (start, stop, spawn, subscribe)
 - Add testing suite
 - Support more model types
 - Support more configurations for inference outputs (bounding boxes, pose tracking, etc.)

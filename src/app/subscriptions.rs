@@ -9,6 +9,7 @@ use iced::Subscription;
 use tokio::sync::broadcast;
 
 use crate::{camera::CameraManager, cv::CVManager};
+use crate::utils::ManagedService;
 
 use super::{Frame, Inference};
 
