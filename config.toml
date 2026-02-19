@@ -3,6 +3,4 @@ model_path = "models/pose.onnx"
 inference_type = "Pose"
 
 [camera]
-width = 640
-height = 480
 device = "/dev/video0"

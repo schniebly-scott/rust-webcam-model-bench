@@ -17,8 +17,6 @@ pub struct ModelConfig {
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct CameraConfig {
-    pub width: u32,
-    pub height: u32,
     pub device: String,
 }
 

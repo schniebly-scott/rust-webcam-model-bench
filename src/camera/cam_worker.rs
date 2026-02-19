@@ -1,4 +1,4 @@
-use ccap::Provider;
+use ccap::{PropertyName, Provider};
 
 use std::sync::atomic::Ordering;
 use std::thread;
@@ -23,12 +23,18 @@ impl CameraWorker {
     pub fn spawn(self) -> Result<(), Box<dyn Error>> {
         let mut camera = Provider::with_device_name(&self.config.device)?;
         camera.set_pixel_format(ccap::PixelFormat::Rgba32)?;
-        println!("Camera started successfully");
+
+        let width = camera.get_property(PropertyName::Width)? as u32;
+        let height = camera.get_property(PropertyName::Height)? as u32;
+        println!(
+            "Camera started successfully, real resolution: {}x{}",
+            width, height
+        );
 
         let pool: Arc<Mutex<Vec<Vec<u8>>>> = Arc::new(Mutex::new(Vec::new()));
 
         thread::spawn(move || {
-            let frame_len = (self.config.width * self.config.height * 4) as usize;
+            let frame_len = (width * height * 4) as usize;
 
             while self.core.running.load(Ordering::SeqCst) {
                 match camera.grab_frame(3000) {
@@ -46,7 +52,7 @@ impl CameraWorker {
                         };
 
                         let captured_frame: Frame =
-                            (self.config.width, self.config.height, Arc::new(buf));
+                            (width, height, Arc::new(buf));
 
                         let mut slot = self.shared.lock().unwrap();
                         *slot = Some(captured_frame.clone());

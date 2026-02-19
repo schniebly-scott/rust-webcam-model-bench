@@ -11,7 +11,10 @@
 
 **Post-MVP Goals**:
 - Support more configurations for inference outputs (bounding boxes, pose tracking, etc.)
+- Enable keypoints configuration (ex. remove some skeletons points displayed)
 - Add testing suite
+- Add FPS for camera and CV
+- Select Camera in the UI (Linux currently not working with auto-detect)
 - Add a copy to clipboard button for inference times
 - Add line graph to view inference time over time
 - include stats/warning about low confidence points trimmed
