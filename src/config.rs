@@ -13,6 +13,9 @@ pub struct Config {
 pub struct ModelConfig {
     pub model_path: String,
     pub inference_type: InfType,
+    pub inf_width: usize,
+    pub inf_height: usize,
+    pub keep_keypoints: [usize; 5],
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]

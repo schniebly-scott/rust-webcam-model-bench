@@ -1,6 +1,9 @@
 [model]
-model_path = "models/pose.onnx"
+model_path = "models/vitpose_optimized.onnx"
 inference_type = "Pose"
+inf_width = 192
+inf_height = 256
+keep_keypoints = [0, 5, 6, 7, 8]
 
 [camera]
 device = "/dev/video0"

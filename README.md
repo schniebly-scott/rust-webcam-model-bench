@@ -1,8 +1,6 @@
 # Rust Webcam Model Bench
 ### Test ONNX computer vision models easily
 
-**Currently only works on Linux, since the webcam library is based on v4l2**
-
 ![Project Screenshot](assets/screengrab.jpg)
 
 ### Overview

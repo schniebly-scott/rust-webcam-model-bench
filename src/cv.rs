@@ -1,6 +1,7 @@
 mod cv_inference;
 mod cv_service;
 mod cv_worker;
+mod tasks;
 
 use std::time::Duration;
 
