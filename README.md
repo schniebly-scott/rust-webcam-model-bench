@@ -10,13 +10,12 @@
 **MVP**: Run an ONNX computer vision model using Rust with Iced, Ort, and a webcam library.
 
 **Post-MVP Goals**:
-- Integrate Windows support
-- Add testing suite
-- Support more model types
 - Support more configurations for inference outputs (bounding boxes, pose tracking, etc.)
+- Add testing suite
 - Add a copy to clipboard button for inference times
 - Add line graph to view inference time over time
 - include stats/warning about low confidence points trimmed
+- Support more model types (tensor-lite, coreML, etc.)
 
 ### Pipeline
 ```
@@ -40,3 +39,6 @@ Camera ---> CV ----> UI
 1. Subscirbe to both broadcast channels
 2. Update upon receiving a message
 3. Display camera frame with inference overlayed in front
+
+### Test Models
+- Pose [link](https://huggingface.co/onnx-community/vitpose-base-simple)
