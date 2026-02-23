@@ -10,7 +10,7 @@ use raqote::{
 };
 use image::{DynamicImage, imageops::FilterType};
 use ndarray::{Array4, Axis};
-use constants::{SKELETON, KEEP_KEYPOINTS};
+use constants::SKELETON;
 
 pub type Keypoints = [Option<(f32, f32, f32)>; 17];
 
@@ -48,7 +48,7 @@ impl PoseTask {
         let scale_x = orig_w as f32 / self.inf_width as f32;
         let scale_y = orig_h as f32 / self.inf_height as f32;
 
-        for &k in &KEEP_KEYPOINTS {
+        for &k in &self.keep_keypoints {
             let map = maps.index_axis(Axis(0), k);
             let slice = map.as_slice().unwrap();
 

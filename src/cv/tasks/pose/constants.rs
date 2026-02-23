@@ -10,4 +10,41 @@ pub const SKELETON: &[(usize, usize)] = &[
     (12, 14), (14, 16),
 ];
 
-pub const KEEP_KEYPOINTS: [usize; 5] = [0, 5, 6, 7, 8];
+// --------- Keypoint descriptions -----------------
+// 0: nose
+// 1: left_eye
+// 2: right_eye
+// 3: left_ear
+// 4: right_ear
+// 5: left_shoulder
+// 6: right_shoulder
+// 7: left_elbow
+// 8: right_elbow
+// 9: left_wrist
+// 10: right_wrist
+// 11: left_hip
+// 12: right_hip
+// 13: left_knee
+// 14: right_knee
+// 15: left_ankle
+// 16: right_ankle
+
+// pub const COCO_KEYPOINT_NAMES: [&str; 17] = [
+//     "nose",
+//     "left_eye",
+//     "right_eye",
+//     "left_ear",
+//     "right_ear",
+//     "left_shoulder",
+//     "right_shoulder",
+//     "left_elbow",
+//     "right_elbow",
+//     "left_wrist",
+//     "right_wrist",
+//     "left_hip",
+//     "right_hip",
+//     "left_knee",
+//     "right_knee",
+//     "left_ankle",
+//     "right_ankle",
+// ];
