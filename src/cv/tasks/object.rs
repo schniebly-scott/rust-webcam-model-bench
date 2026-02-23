@@ -1,0 +1,1 @@
+pub type Detections = Option<u32>;

@@ -5,12 +5,10 @@ use std::sync::{Arc, Mutex};
 
 use crate::camera::RgbaBuffer;
 use crate::SharedFrame;
-use crate::config::ModelConfig;
 use crate::utils::ServiceCore;
 use super::{Inference, cv_inference::Model};
 
 pub struct CVWorker {
-    pub config: ModelConfig,
     pub model: Arc<Mutex<Option<Model>>>,
     pub shared: SharedFrame,
     pub core: ServiceCore<Inference>
@@ -44,7 +42,7 @@ impl CVWorker {
 
                     // ---------- Inference ----------
                     let now = Instant::now();
-                    let output = match model.process_rgba(&rgba, width, height, self.config.inference_type) {
+                    let output = match model.process_rgba(&rgba, width, height) {
                         Ok(o) => o,
                         Err(e) => {
                             eprintln!("Inference error: {e}");

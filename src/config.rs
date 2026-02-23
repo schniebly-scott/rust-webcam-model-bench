@@ -13,8 +13,19 @@ pub struct Config {
 pub struct ModelConfig {
     pub model_path: String,
     pub inference_type: InfType,
+    pub generics: InferenceGenericConfig,
+    pub pose: Option<PoseConfig>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct InferenceGenericConfig {
     pub inf_width: usize,
     pub inf_height: usize,
+    pub confidence_threshold: f32
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct PoseConfig {
     pub keep_keypoints: [usize; 5],
 }
 

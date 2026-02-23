@@ -1,10 +1,17 @@
-use std::error::Error;
-use ndarray::{Array4, Axis};
+use std::{error::Error, fmt::Debug};
+use ndarray::Array4;
 use image::DynamicImage;
 
-mod pose_task;
+mod pose;
+mod object;
+mod segment;
 
-pub trait VisionTask {
+use pose::Keypoints;
+use object::Detections;
+
+pub use pose::PoseTask;
+
+pub trait VisionTask: Send + Sync + Debug {
     fn preprocess(&self, img: &DynamicImage) -> Array4<f32>;
 
     fn postprocess(
@@ -24,6 +31,6 @@ pub trait VisionTask {
 
 pub enum TaskResult {
     Pose(Keypoints),
-    Detections(Vec<Detection>),
+    Detections(Vec<Detections>),
     SegmentationMask(Vec<u8>),
 }

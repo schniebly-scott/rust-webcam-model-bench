@@ -29,7 +29,7 @@ impl CVManager {
 
     pub fn load_model(&self) -> Result<Duration, Box<dyn Error>> {
         let now = Instant::now();
-        let estimator = Model::new(&self.config.model_path)?;
+        let estimator = Model::from_config(&self.config)?;
         let elapsed = now.elapsed();
 
         let mut model_lock = self.model.lock().unwrap();
@@ -51,7 +51,6 @@ impl ManagedService for CVManager {
         self.core.running.store(true, Ordering::SeqCst);
 
         CVWorker {
-            config: self.config.clone(),
             model: self.model.clone(),
             shared: self.shared.clone(),
             core: self.core.clone(),
