@@ -48,3 +48,5 @@ pub const SKELETON: &[(usize, usize)] = &[
 //     "left_ankle",
 //     "right_ankle",
 // ];
+
+pub const KPT_START: usize = 5; 

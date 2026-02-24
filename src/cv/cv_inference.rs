@@ -9,6 +9,8 @@ use crate::{config::ModelConfig, cv::{InfType, tasks::{PoseTask, VisionTask}}};
 pub struct Model {
     session: Session,
     task: Box<dyn VisionTask + Send + Sync>,
+    input_name: String,
+    output_name: String,
 }
 
 impl Model {
@@ -23,7 +25,15 @@ impl Model {
                 InfType::Segment => todo!(),
             };
 
-        Ok(Self { session, task })
+        let input_name = session.inputs()[0].name().to_string();
+        let output_name = session.outputs()[0].name().to_string();
+
+        Ok(Self { 
+            session,
+            task,
+            input_name,
+            output_name,
+        })
     }
 
     pub fn process_rgba(
@@ -37,10 +47,10 @@ impl Model {
         let input = self.task.preprocess(&img);
 
         let outputs = self.session.run(
-            inputs!["input" => TensorRef::from_array_view(&input)?]
+            inputs![&self.input_name => TensorRef::from_array_view(&input)?]
         )?;
 
-        let result = self.task.postprocess(&outputs, width, height)?;
+        let result = self.task.postprocess(&outputs, &self.output_name, width, height)?;
 
         Ok(self.task.render(&result, width, height))
     }

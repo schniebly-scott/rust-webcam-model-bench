@@ -1,10 +1,10 @@
 [model]
-model_path = "models/pose.onnx"
+model_path = "models/yolov8n-pose.onnx"
 inference_type = "Pose"
 
 [model.generics]
-inf_width = 192
-inf_height = 256
+inf_width = 640
+inf_height = 640
 confidence_threshold = 0.05
 
 [model.pose]

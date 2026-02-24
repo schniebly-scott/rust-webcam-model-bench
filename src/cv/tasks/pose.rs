@@ -1,7 +1,7 @@
 mod constants;
 
 use std::error::Error;
-use crate::config::{InferenceGenericConfig, PoseConfig};
+use crate::{config::{InferenceGenericConfig, PoseConfig}, cv::tasks::pose::constants::KPT_START};
 
 use super::{VisionTask, TaskResult};
 use raqote::{
@@ -17,7 +17,7 @@ pub type Keypoints = [Option<(f32, f32, f32)>; 17];
 #[derive(Debug)]
 
 pub struct PoseTask {
-    keep_keypoints: [usize; 5],
+    config: PoseConfig,
     inf_width: usize,
     inf_height: usize,
     confidence_threshold: f32,
@@ -26,14 +26,14 @@ pub struct PoseTask {
 impl PoseTask {
     pub fn new(generics: &InferenceGenericConfig, pose_config: &PoseConfig) -> Self {
         Self { 
-            keep_keypoints: pose_config.keep_keypoints,
+            config: pose_config.clone(),
             inf_width: generics.inf_width,
             inf_height: generics.inf_height,
             confidence_threshold: generics.confidence_threshold,
         }
     }
 
-    fn decode_pose_fast(
+    fn decode_heatmap_pose(
         &self,
         heatmaps: &Array4<f32>,
         orig_w: u32,
@@ -48,7 +48,7 @@ impl PoseTask {
         let scale_x = orig_w as f32 / self.inf_width as f32;
         let scale_y = orig_h as f32 / self.inf_height as f32;
 
-        for &k in &self.keep_keypoints {
+        for &k in &self.config.keep_keypoints {
             let map = maps.index_axis(Axis(0), k);
             let slice = map.as_slice().unwrap();
 
@@ -70,6 +70,52 @@ impl PoseTask {
         }
 
         keypoints
+    }
+
+    fn decode_yolo_pose(
+        &self,
+        preds: &ndarray::Array3<f32>,
+        orig_w: u32,
+        orig_h: u32,
+    ) -> Result<Keypoints, Box<dyn Error>> {
+
+        // shape: [1, 56, 8400]
+        let preds = preds.index_axis(ndarray::Axis(0), 0);
+
+        // transpose to [8400, 56]
+        let preds = preds.permuted_axes([1, 0]);
+
+        let mut best_conf = 0.0;
+        let mut best_row = None;
+
+        for row in preds.outer_iter() {
+            let conf = row[4];
+
+            if conf > best_conf {
+                best_conf = conf;
+                best_row = Some(row);
+            }
+        }
+
+        let row = best_row.ok_or("No detections")?;
+
+        let mut keypoints: Keypoints = [None; 17];
+
+        let scale_x = orig_w as f32 / self.inf_width as f32;
+        let scale_y = orig_h as f32 / self.inf_height as f32;
+        let kpt_start = KPT_START; // after bbox + obj + class
+
+        for &k in &self.config.keep_keypoints {
+            let base = kpt_start + k * 3;
+
+            let x = row[base] * scale_x as f32;
+            let y = row[base + 1] * scale_y as f32;
+            let conf = row[base + 2];
+
+            keypoints[k] = Some((x, y, conf));
+        }
+
+        Ok(keypoints)
     }
 
     fn render_pose(&self, keypoints: &Keypoints, width: u32, height: u32) -> Vec<u8> {
@@ -158,18 +204,35 @@ impl VisionTask for PoseTask {
     fn postprocess(
         &self,
         outputs: &ort::session::SessionOutputs,
+        output_name: &str,
         orig_w: u32,
         orig_h: u32,
     ) -> Result<TaskResult, Box<dyn Error>> {
+        let tensor = outputs
+            .get(output_name)
+            .ok_or("Missing output tensor")?;
 
-        let heatmaps = outputs["output"]
+        let array = tensor
             .try_extract_array::<f32>()?
-            .into_owned()
-            .into_dimensionality::<ndarray::Ix4>()?;
+            .into_owned();
 
-        let keypoints = self.decode_pose_fast(&heatmaps, orig_w, orig_h);
+        match array.ndim() {
+            // Heatmap model
+            4 => {
+                let heatmaps = array.into_dimensionality::<ndarray::Ix4>()?;
+                let keypoints = self.decode_heatmap_pose(&heatmaps, orig_w, orig_h);
+                Ok(TaskResult::Pose(keypoints))
+            }
 
-        Ok(TaskResult::Pose(keypoints))
+            // YOLO model
+            3 => {
+                let preds = array.into_dimensionality::<ndarray::Ix3>()?;
+                let keypoints = self.decode_yolo_pose(&preds, orig_w, orig_h)?;
+                Ok(TaskResult::Pose(keypoints))
+            }
+
+            _ => Err("Unsupported output shape".into()),
+        }
     }
 
     fn render(

@@ -17,6 +17,7 @@ pub trait VisionTask: Send + Sync + Debug {
     fn postprocess(
         &self,
         outputs: &ort::session::SessionOutputs,
+        output_name: &str,
         orig_width: u32,
         orig_height: u32,
     ) -> Result<TaskResult, Box<dyn Error>>;
