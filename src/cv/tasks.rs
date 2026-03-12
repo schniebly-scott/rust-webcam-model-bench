@@ -1,6 +1,5 @@
 use std::{error::Error, fmt::Debug};
 use ndarray::Array4;
-use image::DynamicImage;
 
 mod pose;
 mod object;
@@ -12,7 +11,10 @@ use object::Detections;
 pub use pose::PoseTask;
 
 pub trait VisionTask: Send + Sync + Debug {
-    fn preprocess(&self, img: &DynamicImage) -> Array4<f32>;
+    fn preprocess(&self,
+        rgba: &[u8],
+        width: u32,
+        height: u32,) -> Array4<f32>;
 
     fn postprocess(
         &self,
