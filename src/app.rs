@@ -1,9 +1,12 @@
 mod subscriptions;
+mod helpers;
 
 use std::time::Duration;
 
 use iced::widget::{column, row, button, container, image, stack, text};
 use iced::{Alignment, Element, Fill, Font, Subscription, Theme};
+use crate::app::helpers::metric_row;
+use crate::cv::TimeMetrics;
 use crate::{Frame, Inference};
 use crate::utils::ManagedService;
 
@@ -31,7 +34,7 @@ pub struct App {
     cv_frame: Option<image::Handle>,
     
     model_load_time: Option<Duration>,
-    inference_time: Option<Duration>,
+    time_metrics: Option<TimeMetrics>,
 
     inference_state: InferenceState,
 }
@@ -39,7 +42,7 @@ pub struct App {
 #[derive(Debug, Clone)]
 pub enum Message {
     CamFrame(image::Handle),
-    CvInference((image::Handle, Duration)),
+    CvInference((image::Handle, TimeMetrics)),
     LoadModelPressed,
     StartInferencePressed,
     StopInferencePressed,
@@ -52,7 +55,7 @@ impl App {
             cam_frame: None,
             cv_frame: None,
             model_load_time: None,
-            inference_time: None,
+            time_metrics: None,
             inference_state: InferenceState::Unloaded,
         }
     }
@@ -64,7 +67,7 @@ impl App {
             }
             Message::CvInference((frame, inf_time)) => {
                 self.cv_frame = Some(frame);
-                self.inference_time = Some(inf_time);
+                self.time_metrics = Some(inf_time);
             }
             Message::LoadModelPressed => {
                 match self.pipelines.cv_manager.load_model() {
@@ -146,19 +149,25 @@ impl App {
             .size(16)
         ].spacing(5);
 
-        let inference_time_label = row![
-            text("Inference Time: ")
-            .font(Font {
-                weight: iced::font::Weight::Bold,
-                ..Font::DEFAULT
-            }).size(16),
-            text(
-                self.inference_time
-                    .map(|t| format!("{:?}", t))
-                    .unwrap_or_else(|| "Not inference yet".to_string())
-            )
-            .size(16)
-        ].spacing(5);
+        let preprocess_time_label = metric_row(
+            "Preprocess Time:",
+            self.time_metrics.map(|t| format!("{:?}", t.preprocess)),
+        );
+
+        let inference_time_label = metric_row(
+            "Inference Time:",
+            self.time_metrics.map(|t| format!("{:?}", t.inference)),
+        );
+
+        let postprocess_time_label = metric_row(
+            "Postprocess Time:",
+            self.time_metrics.map(|t| format!("{:?}", t.postprocess)),
+        );
+
+        let render_time_label = metric_row(
+            "Render Time:",
+            self.time_metrics.map(|t| format!("{:?}", t.render)),
+        );
 
         let content = column![
             img,
@@ -168,7 +177,12 @@ impl App {
             ].spacing(40),
             row![
                 model_load_label,
-                inference_time_label
+                column![
+                    preprocess_time_label,
+                    inference_time_label,
+                    postprocess_time_label,
+                    render_time_label,
+                ]
             ].spacing(40)
         ]
         .spacing(20)

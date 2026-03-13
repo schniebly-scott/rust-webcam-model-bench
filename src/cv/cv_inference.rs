@@ -1,8 +1,8 @@
-use std::error::Error;
+use std::{error::Error, time::Instant};
 
 use ort::{inputs, session::Session, value::TensorRef};
 
-use crate::{config::ModelConfig, cv::{InfType, tasks::{PoseTask, VisionTask}}};
+use crate::{config::ModelConfig, cv::{InfType, TimeMetrics, tasks::{PoseTask, VisionTask}}};
 
 #[derive(Debug)]
 pub struct Model {
@@ -40,15 +40,30 @@ impl Model {
         rgba: &[u8],
         width: u32,
         height: u32,
-    ) -> Result<Vec<u8>, Box<dyn Error>> {
-        let input = self.task.preprocess(rgba,width,height);
+    ) -> Result<(Vec<u8>, TimeMetrics), Box<dyn Error>> {
+        let t0 = Instant::now();
+        let input = self.task.preprocess(rgba, width, height);
+        let preprocess = t0.elapsed();
 
+        let t1 = Instant::now();
         let outputs = self.session.run(
             inputs![&self.input_name => TensorRef::from_array_view(&input)?]
         )?;
+        let inference = t1.elapsed();
 
+        let t2 = Instant::now();
         let result = self.task.postprocess(&outputs, &self.output_name, width, height)?;
+        let postprocess = t2.elapsed();
 
-        Ok(self.task.render(&result, width, height))
+        let t3 = Instant::now();
+        let img = self.task.render(&result, width, height);
+        let render = t3.elapsed();
+
+        Ok((img, TimeMetrics {
+            preprocess,
+            postprocess,
+            inference,
+            render
+        }))
     }
 }

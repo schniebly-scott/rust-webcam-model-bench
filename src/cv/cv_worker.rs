@@ -1,6 +1,6 @@
 use std::sync::atomic::Ordering;
 use std::time::Duration;
-use std::{thread, time::Instant, error::Error};
+use std::{thread, error::Error};
 use std::sync::{Arc, Mutex};
 
 use crate::camera::RgbaBuffer;
@@ -41,15 +41,13 @@ impl CVWorker {
                     let (width, height, rgba) = (frame.0, frame.1, frame.2.data.clone());
 
                     // ---------- Inference ----------
-                    let now = Instant::now();
-                    let output = match model.process_rgba(&rgba, width, height) {
+                    let (output, time_metrics) = match model.process_rgba(&rgba, width, height) {
                         Ok(o) => o,
                         Err(e) => {
                             eprintln!("Inference error: {e}");
                             continue;
                         }
                     };
-                    let elapsed = now.elapsed();
 
                     // ---------- Publish result ----------
                     let buf = RgbaBuffer {
@@ -57,7 +55,7 @@ impl CVWorker {
                         pool: pool.clone(),
                     };
 
-                    let _ = self.core.tx.send(Inference { frame: (width, height, Arc::new(buf)), inf_time: elapsed });
+                    let _ = self.core.tx.send(Inference { frame: (width, height, Arc::new(buf)), time_metrics });
                 } else {
                     //No frame available, yield CPU
                     std::thread::sleep(Duration::from_millis(5));

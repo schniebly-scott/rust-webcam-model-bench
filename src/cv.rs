@@ -12,7 +12,7 @@ use serde::{Deserialize, Serialize};
 #[derive(Clone, Debug)]
 pub struct Inference { 
     pub frame: Frame,
-    pub inf_time: Duration
+    pub time_metrics: TimeMetrics,
 }
 
 #[derive(Clone, Debug, Copy, Serialize, Deserialize)]
@@ -20,4 +20,12 @@ pub enum InfType {
     Pose,
     BoundingBox,
     Segment,
+}
+
+#[derive(Clone, Debug, Copy, Serialize, Deserialize)]
+pub struct TimeMetrics {
+    pub preprocess: Duration,
+    pub inference: Duration,
+    pub postprocess: Duration,
+    pub render: Duration,
 }

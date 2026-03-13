@@ -8,7 +8,6 @@ use raqote::{
     DrawOptions, DrawTarget, LineJoin, PathBuilder,
     SolidSource, Source, StrokeStyle,
 };
-use image::{DynamicImage, imageops::FilterType};
 use ndarray::{Array4, Axis};
 use constants::SKELETON;
 
